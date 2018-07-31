@@ -1,0 +1,21 @@
+{
+	"name": "app",
+	"version": "1.0.0",
+	"author": "paul",
+	"dependencies": {
+		"@device.farm/si-stm32f0x2": "1.0.0",
+		"@device.farm/si-application-events": "1.0.0",
+		"@device.farm/si-stm32-usbd": "1.0.0",
+		"@device.farm/si-stm32-timer": "1.0.4"
+	},
+	"silicon": {
+		"sources": [
+			"app.cpp"
+		],
+		"symbols": {
+			"ROM_START": "0x08000000",
+			"RAM_START": "0x20000000",
+			"RAM_SIZE": "6144"
+		}
+	}
+}
