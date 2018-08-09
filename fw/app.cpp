@@ -1,5 +1,6 @@
 target::gpio_b_f::Peripheral* LED_PORT = &target::GPIOB;
 int LED_PIN = 7;
+target::i2c::Peripheral* I2C = &target::I2C1;
 
 class TurnLedOffTimer : public genericTimer::Timer {
 
@@ -98,9 +99,32 @@ void initApplication() {
 
 	target::RCC.AHBENR.setIOPBEN(true);
 	LED_PORT->MODER.setMODER(LED_PIN, 1);
-
 	LED_PORT->ODR.setODR(LED_PIN, 1);
 	turnLedOffTimer.start(100);
+
+	target::RCC.AHBENR.setIOPAEN(true);
+	target::GPIOA.AFRH.setAFRH(9, 4);
+	target::GPIOA.AFRH.setAFRH(10, 4);
+	target::GPIOA.MODER.setMODER(9, 2);
+	target::GPIOA.MODER.setMODER(10, 2);
+
+	target::RCC.APB1ENR.setC_EN(1, 1);
+	I2C->TIMINGR.setPRESC(1);
+	I2C->TIMINGR.setSCLL(0xC7);
+	I2C->TIMINGR.setSCLH(0xC3);
+	I2C->TIMINGR.setSDADEL(0x02);
+	I2C->TIMINGR.setSCLDEL(0x04);
+	I2C->CR2.setAUTOEND(1);
+	I2C->CR1.setPE(1);
+
+while(true) {
+	//I2C->CR2.setSADD(0xFE);
+	I2C->CR2.setNBYTES(3);
+	I2C->CR2.setRD_WRN(0);	
+	I2C->CR2.setSTART(1);
+
+	for (volatile int c = 0; c < 100000; c++);
+}
 
 	converterDevice.init();
 }
