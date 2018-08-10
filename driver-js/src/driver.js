@@ -18,7 +18,7 @@ module.exports = {
 
 		async function read(len) {
 			return new Promise((resolve, reject) => {
-				inEndpoint.transfer(1, (error, data) => {
+				inEndpoint.transfer(len, (error, data) => {
 					if (error) {
 						reject(error);
 					} else {

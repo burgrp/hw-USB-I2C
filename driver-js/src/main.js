@@ -5,7 +5,8 @@ async function start() {
 	
 	let device = await driver.open();
 	
-	let data = await device.read(0x48, 1);
+	let data = await device.read(0x48, 2);
+	//write(0x48, [1,2,3]);
 	console.info(data);
 	//await device.write(0x7F, [1,2,3,4,5]);
 	
