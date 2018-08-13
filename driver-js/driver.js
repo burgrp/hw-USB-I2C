@@ -40,16 +40,25 @@ module.exports = {
 			});
 		}
 
+		async function readAndCheckError(length) {
+			let reply = [...(await read(length + 1))];
+			let error = reply.shift();
+			if (error) {
+				throw `I2C error ${error}`;
+			}
+			return reply;
+		}
 
 		return {
 
 			async read(address, length) {
 				await write(Buffer.from([(address << 1) | 1, length]));
-				return [...(await read(length))];
+				return await readAndCheckError(length);
 			},
 
 			async write(address, data) {
 				await write(Buffer.from([address << 1].concat(data)));
+				await readAndCheckError(0);
 			}
 
 		};
