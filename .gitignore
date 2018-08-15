@@ -1,2 +1,7 @@
-node_modules
+*.bak
+*.bck
+*.kicad_pcb-bak
+*-cache.lib
 build
+node_modules
+fw/build
