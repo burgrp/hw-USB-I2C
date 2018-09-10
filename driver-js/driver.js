@@ -7,7 +7,7 @@ module.exports = {
 		if (!device) {
 			throw "USB to I2C converter not found"
 		}
-		
+
 		device.open();
 
 		let interface = device.interface(0);
@@ -16,7 +16,7 @@ module.exports = {
 		let inEndpoint = interface.endpoint(129);
 		let outEndpoint = interface.endpoint(1);
 
-		async function read(len) {
+		async function usbRead(len) {
 			return new Promise((resolve, reject) => {
 				inEndpoint.transfer(len, (error, data) => {
 					if (error) {
@@ -28,7 +28,7 @@ module.exports = {
 			});
 		}
 
-		async function write(data) {
+		async function usbWrite(data) {
 			return new Promise((resolve, reject) => {
 				outEndpoint.transfer(data, error => {
 					if (error) {
@@ -41,7 +41,7 @@ module.exports = {
 		}
 
 		async function readAndCheckError(length) {
-			let reply = [...(await read(length + 1))];
+			let reply = [...(await usbRead(length + 1))];
 			let error = reply.shift();
 			if (error) {
 				throw `I2C error ${error}`;
@@ -49,16 +49,58 @@ module.exports = {
 			return reply;
 		}
 
-		return {
+		async function doRead(address, length) {
+			await usbWrite(Buffer.from([(address << 1) | 1, length]));
+			return await readAndCheckError(length);
+		}
 
-			async read(address, length) {
-				await write(Buffer.from([(address << 1) | 1, length]));
-				return await readAndCheckError(length);
+		async function doWrite(address, data) {
+			await usbWrite(Buffer.from([address << 1].concat(data)));
+			await readAndCheckError(0);
+		}
+
+		let queue = [];
+
+		function checkQueue() {
+			if (queue.length === 1) {
+				queue[0]();
+			}
+		}
+
+		return {
+			
+			read(address, length) {
+				return new Promise((resolve, reject) => {
+					queue.push(() => {
+						doRead(address, length).then(r => {
+							queue.shift();
+							resolve(r);
+							checkQueue();							
+						}, e => {
+							queue.shift();
+							reject(e);
+							checkQueue();							
+						});
+					});
+					checkQueue();
+				});
 			},
 
-			async write(address, data) {
-				await write(Buffer.from([address << 1].concat(data)));
-				await readAndCheckError(0);
+			write(address, data) {
+				return new Promise((resolve, reject) => {
+					queue.push(() => {
+						doWrite(address, data).then(r => {
+							queue.shift();
+							resolve(r);
+							checkQueue();							
+						}, e => {
+							queue.shift();
+							reject(e);
+							checkQueue();							
+						});
+					});
+					checkQueue();
+				});
 			}
 
 		};
