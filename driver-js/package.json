@@ -11,6 +11,7 @@
   "author": "paul",
   "contributors": [],
   "dependencies": {
+    "promise-critical-section": "0.0.2",
     "usb": "^1.3.1"
   },
   "main": "driver.js"

@@ -12,19 +12,19 @@ class TurnLedOffTimer : public genericTimer::Timer
 
 TurnLedOffTimer turnLedOffTimer;
 
-class DataEndopoint;
+class DataEndpoint;
 
 class ConverterI2C : public i2c::hw::Master
 {
   public:
-	DataEndopoint *endpoint;
+	DataEndpoint *endpoint;
 
 	virtual void onRx(int byte, int index);
 	virtual int onTx(int index);
 	virtual void onStop(bool read, int error);
 };
 
-class DataEndopoint : public usbd::AbstractBulkEndpoint
+class DataEndpoint : public usbd::AbstractBulkEndpoint
 {
 
   public:
@@ -77,6 +77,16 @@ class DataEndopoint : public usbd::AbstractBulkEndpoint
 	}
 };
 
+class AlertEndpoint : public usbd::AbstractInterruptEndpoint
+{
+  public:
+	void handleInterrupt()
+	{
+		unsigned char buffer[1] = {1};
+		send(buffer, sizeof(buffer));
+	}
+};
+
 void ConverterI2C::onRx(int byte, int index)
 {
 	endpoint->i2cBuffer[index] = byte;
@@ -104,11 +114,13 @@ void ConverterI2C::onStop(bool read, int error)
 class DefaultInterface : public usbd::UsbInterface
 {
   public:
-	DataEndopoint endpoint;
+	DataEndpoint dataEndpoint;
+	AlertEndpoint alertEndpoint;
 
 	void init()
 	{
-		endpoints[0] = &endpoint;
+		endpoints[0] = &dataEndpoint;
+		endpoints[1] = &alertEndpoint;
 		UsbInterface::init();
 	}
 };
@@ -144,7 +156,16 @@ ConverterDevice converterDevice;
 
 void interruptHandlerI2C1()
 {
-	converterDevice.configuration.interface.endpoint.i2c.handleInterrupt();
+	converterDevice.configuration.interface.dataEndpoint.i2c.handleInterrupt();
+}
+
+void interruptHandlerEXTI4_15()
+{
+	if (target::EXTI.PR.getPIF(8))
+	{
+		target::EXTI.PR.setPIF(8, 1);
+		converterDevice.configuration.interface.alertEndpoint.handleInterrupt();
+	}
 }
 
 void initApplication()
@@ -152,19 +173,31 @@ void initApplication()
 
 	genericTimer::clkHz = 48E6;
 
+	target::RCC.AHBENR.setIOPAEN(true);
 	target::RCC.AHBENR.setIOPBEN(true);
+
+	// LED
 	LED_PORT->MODER.setMODER(LED_PIN, 1);
 	LED_PORT->ODR.setODR(LED_PIN, 1);
 	turnLedOffTimer.start(100);
 
-	target::RCC.AHBENR.setIOPAEN(true);
+	// Alert
+	target::GPIOA.MODER.setMODER(8, 0);
+	target::GPIOA.PUPDR.setPUPDR(8, 1);
+	target::EXTI.FTSR.setTR(8, 1);
+	target::EXTI.IMR.setMR(8, 1);
+
+	// I2C
 	target::GPIOA.AFRH.setAFRH(9, 4);
 	target::GPIOA.AFRH.setAFRH(10, 4);
 	target::GPIOA.MODER.setMODER(9, 2);
 	target::GPIOA.MODER.setMODER(10, 2);
-
 	target::RCC.APB1ENR.setC_EN(1, 1);
-	target::NVIC.ISER.setSETENA(1 << target::interrupts::External::I2C1);
 
 	converterDevice.init();
+
+	// interrupts
+	target::SYSCFG_COMP.SYSCFG_EXTICR1.setEXTI(8, 0);
+	target::NVIC.ISER.setSETENA(1 << target::interrupts::External::EXTI4_15);
+	target::NVIC.ISER.setSETENA(1 << target::interrupts::External::I2C1);
 }

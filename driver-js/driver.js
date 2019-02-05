@@ -1,4 +1,5 @@
 const usb = require("usb");
+const CriticalSection = require("promise-critical-section");
 
 module.exports = {
 
@@ -13,12 +14,13 @@ module.exports = {
 		let interface = device.interface(0);
 		interface.claim();
 
-		let inEndpoint = interface.endpoint(129);
-		let outEndpoint = interface.endpoint(1);
+		let dataInEp = interface.endpoint(129);
+		let dataOutEp = interface.endpoint(1);
+		let alertInEp = interface.endpoint(130);
 
 		async function usbRead(len) {
 			return new Promise((resolve, reject) => {
-				inEndpoint.transfer(len, (error, data) => {
+				dataInEp.transfer(len, (error, data) => {
 					if (error) {
 						reject(error);
 					} else {
@@ -30,7 +32,7 @@ module.exports = {
 
 		async function usbWrite(data) {
 			return new Promise((resolve, reject) => {
-				outEndpoint.transfer(data, error => {
+				dataOutEp.transfer(data, error => {
 					if (error) {
 						reject(error);
 					} else {
@@ -40,7 +42,7 @@ module.exports = {
 			});
 		}
 
-		async function readAndCheckError(length) {
+		async function usbReadWithCheck(length) {
 			let reply = [...(await usbRead(length + 1))];
 			let error = reply.shift();
 			if (error) {
@@ -49,57 +51,38 @@ module.exports = {
 			return reply;
 		}
 
-		async function doRead(address, length) {
-			await usbWrite(Buffer.from([(address << 1) | 1, length]));
-			return await readAndCheckError(length);
-		}
-
-		async function doWrite(address, data) {
-			await usbWrite(Buffer.from([address << 1].concat(data)));
-			await readAndCheckError(0);
-		}
-
-		let queue = [];
-
-		function checkQueue() {
-			if (queue.length === 1) {
-				queue[0]();
-			}
-		}
+		const section = new CriticalSection();
 
 		return {
-			
-			read(address, length) {
-				return new Promise((resolve, reject) => {
-					queue.push(() => {
-						doRead(address, length).then(r => {
-							queue.shift();
-							resolve(r);
-							checkQueue();							
-						}, e => {
-							queue.shift();
-							reject(e);
-							checkQueue();							
-						});
-					});
-					checkQueue();
-				});
+			async read(address, length) {
+				try {
+					await section.enter();
+					await usbWrite(Buffer.from([(address << 1) | 1, length]));
+					return await usbReadWithCheck(length);
+				} finally {
+					await section.leave();
+				}
 			},
 
-			write(address, data) {
+			async write(address, data) {
+				try {
+					await section.enter();
+					await usbWrite(Buffer.from([address << 1].concat(data)));
+					await usbReadWithCheck(0);
+				} finally {
+					await section.leave();
+				}
+			},
+
+			async alert() {
 				return new Promise((resolve, reject) => {
-					queue.push(() => {
-						doWrite(address, data).then(r => {
-							queue.shift();
-							resolve(r);
-							checkQueue();							
-						}, e => {
-							queue.shift();
-							reject(e);
-							checkQueue();							
-						});
+					alertInEp.transfer(1, (error, data) => {
+						if (error) {
+							reject(error);
+						} else {
+							resolve(data);
+						}
 					});
-					checkQueue();
 				});
 			}
 
