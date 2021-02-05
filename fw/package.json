@@ -3,9 +3,9 @@
 	"version": "1.0.0",
 	"author": "paul",
 	"dependencies": {
-		"@device.farm/si-stm32-timer": "1.0.5",
-		"@device.farm/si-stm32-usbd": "1.0.1",
 		"@device.farm/si-stm32-i2c": "1.0.5",
+		"@device.farm/si-stm32-timer": "1.0.5",
+		"@device.farm/si-stm32-usbd": "^1.0.1",
 		"@device.farm/si-stm32f0x2": "1.0.1"
 	},
 	"silicon": {
