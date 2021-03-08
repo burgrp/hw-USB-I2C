@@ -13,6 +13,7 @@
   },
   "silicon": {
     "sources": [
+      "master.cpp",
       "main.cpp"
     ],
     "symbols": {

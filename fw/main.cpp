@@ -12,12 +12,12 @@ int c = 0;
 class TestTimer : public genericTimer::Timer {
 
   void onTimer() {
-    //target::PORT.OUTTGL.setOUTTGL(1 << LED_PIN);
+    // target::PORT.OUTTGL.setOUTTGL(1 << LED_PIN);
     start(10);
 
     target::PORT.OUTSET.setOUTSET(1 << LED_PIN);
 
-    target::SERCOM0.I2CM.ADDR.setADDR(0x4F << 1); // | 1
+    target::SERCOM0.I2CM.ADDR.setADDR(0x4F << 1 | 1); // | 1
     // target::SERCOM0.I2CM.DATA = 0xFF;
 
     c = 0;
@@ -25,7 +25,7 @@ class TestTimer : public genericTimer::Timer {
 
 public:
   void interruptHandlerSERCOM() {
-  target::PORT.OUTCLR.setOUTCLR(1 << LED_PIN);
+    target::PORT.OUTCLR.setOUTCLR(1 << LED_PIN);
 
     if (target::SERCOM0.I2CM.INTFLAG.getMB()) {
       target::SERCOM0.I2CM.INTFLAG.setMB(true);
@@ -40,13 +40,12 @@ public:
     if (target::SERCOM0.I2CM.INTFLAG.getSB()) {
       target::SERCOM0.I2CM.INTFLAG.setSB(true);
 
-        volatile int x = target::SERCOM0.I2CM.DATA;
-        if (c++ < 1) {
-         target::SERCOM0.I2CM.CTRLB.setCMD(2);
-        } else {
-          target::SERCOM0.I2CM.CTRLB.setCMD(3);
-        }
-
+      volatile int x = target::SERCOM0.I2CM.DATA;
+      if (c++ < 1) {
+        target::SERCOM0.I2CM.CTRLB.setCMD(2);
+      } else {
+        target::SERCOM0.I2CM.CTRLB.setCMD(3);
+      }
 
       // if (c++ < 4) {
       //   //target::SERCOM0.I2CM.CTRLB.setCMD(1);
@@ -84,10 +83,16 @@ class BridgeInterface : public usbd::UsbInterface {
 public:
   IrqEndpoint irqEndpoint;
   LedPulseTimer ledPulseTimer;
+  atsamd::i2c::Master i2cMaster;
 
   virtual UsbEndpoint *getEndpoint(int index) { return index == 0 ? &irqEndpoint : NULL; }
 
   const char *getLabel() { return "USB-I2C bridge interface"; }
+
+  void init() {
+    UsbInterface::init();
+    i2cMaster.init(&target::SERCOM0, 8000000, 100000);
+  }
 
   void setup(SetupData *setup) {
     if (setup->bmRequestType.type == VENDOR) {
@@ -139,7 +144,6 @@ void initApplication() {
   atsamd::safeboot::init(9, false, LED_PIN);
 
   bridgeDevice.useInternalOscilators();
-  bridgeDevice.init();
 
   target::PM.APBCMASK.setSERCOM(0, true);
 
@@ -154,27 +158,10 @@ void initApplication() {
   target::PORT.PINCFG[14].setPMUXEN(true);
   target::PORT.PINCFG[15].setPMUXEN(true);
 
-  // target::SERCOM0.I2CM.CTRLA = target::SERCOM0.I2CM.CTRLA.bare().setSWRST(true);
-  // while (target::SERCOM0.I2CM.SYNCBUSY);
-
-  int sckHz = 100000;
-  int baud = genericTimer::clkHz / (2 * sckHz);
-  target::SERCOM0.I2CM.BAUD = target::SERCOM0.I2CM.BAUD.bare().setBAUD(baud).setBAUDLOW(baud);
-
-  //target::SERCOM0.I2CM.CTRLB = target::SERCOM0.I2CM.CTRLB.bare().setSMEN(true);
-
-  target::SERCOM0.I2CM.INTENSET = target::SERCOM0.I2CM.INTENSET.bare().setMB(true).setSB(true);
-
-  target::SERCOM0.I2CM.CTRLA = target::SERCOM0.I2CM.CTRLA.bare()
-                                   .setMODE(target::sercom::I2CM::CTRLA::MODE::I2C_MASTER)
-                                   .setSCLSM(false)
-                                   .setENABLE(true);
-
-  while (target::SERCOM0.I2CM.SYNCBUSY);
-
-  target::SERCOM0.I2CM.STATUS.setBUSSTATE(1); // force bus idle state
-
   target::NVIC.ISER.setSETENA(1 << target::interrupts::External::SERCOM0);
+
+  bridgeDevice.init();
+
 
   testTimer.start(100);
 }
