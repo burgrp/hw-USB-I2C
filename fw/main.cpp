@@ -107,18 +107,11 @@ void initApplication() {
                              .setGEN(target::gclk::CLKCTRL::GEN::GCLK0)
                              .setCLKEN(true);
 
-  target::GCLK.CLKCTRL = target::GCLK.CLKCTRL.bare()
-                             .setID(target::gclk::CLKCTRL::ID::SERCOMX_SLOW)
-                             .setGEN(target::gclk::CLKCTRL::GEN::GCLK0)
-                             .setCLKEN(true);
-
   target::PORT.PMUX[7].setPMUXE(target::port::PMUX::PMUXE::C);
   target::PORT.PMUX[7].setPMUXO(target::port::PMUX::PMUXO::C);
 
   target::PORT.PINCFG[14].setPMUXEN(true);
   target::PORT.PINCFG[15].setPMUXEN(true);
-
-  //target::SERCOM0.I2CM.SYNCBUSY.setENABLE(true);
 
   // SCL at 100kHz for GCLK0 at 8MHz 
   target::SERCOM0.I2CM.BAUD = target::SERCOM0.I2CM.BAUD.bare().setBAUD(35).setBAUDLOW(35);
