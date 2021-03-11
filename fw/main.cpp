@@ -1,61 +1,9 @@
 int LED_PIN = 23;
 
-const int REQUEST_I2C_READ = 0;
-const int REQUEST_I2C_WRITE = 1;
 const int REQUEST_GPIO_CONFIGURE_INPUT = 2;
 const int REQUEST_GPIO_READ_INPUT = 3;
 const int REQUEST_GPIO_CONFIGURE_OUTPUT = 4;
 const int REQUEST_GPIO_WRITE_OUTPUT = 5;
-
-int c = 0;
-
-class TestTimer : public genericTimer::Timer {
-
-  void onTimer() {
-    // target::PORT.OUTTGL.setOUTTGL(1 << LED_PIN);
-    start(10);
-
-    target::PORT.OUTSET.setOUTSET(1 << LED_PIN);
-
-    target::SERCOM0.I2CM.ADDR.setADDR(0x4F << 1 | 1); // | 1
-    // target::SERCOM0.I2CM.DATA = 0xFF;
-
-    c = 0;
-  }
-
-public:
-  void interruptHandlerSERCOM() {
-    target::PORT.OUTCLR.setOUTCLR(1 << LED_PIN);
-
-    if (target::SERCOM0.I2CM.INTFLAG.getMB()) {
-      target::SERCOM0.I2CM.INTFLAG.setMB(true);
-
-      if (c++ < 4) {
-        target::SERCOM0.I2CM.DATA = 1;
-      } else {
-        target::SERCOM0.I2CM.CTRLB.setCMD(3);
-      }
-    }
-
-    if (target::SERCOM0.I2CM.INTFLAG.getSB()) {
-      target::SERCOM0.I2CM.INTFLAG.setSB(true);
-
-      volatile int x = target::SERCOM0.I2CM.DATA;
-      if (c++ < 1) {
-        target::SERCOM0.I2CM.CTRLB.setCMD(2);
-      } else {
-        target::SERCOM0.I2CM.CTRLB.setCMD(3);
-      }
-
-      // if (c++ < 4) {
-      //   //target::SERCOM0.I2CM.CTRLB.setCMD(1);
-      // } else {
-      //   volatile int x = target::SERCOM0.I2CM.DATA;
-      //   target::SERCOM0.I2CM.CTRLB.setCMD(2);
-      // }
-    }
-  }
-};
 
 class LedPulseTimer : public genericTimer::Timer {
 
@@ -64,9 +12,55 @@ class LedPulseTimer : public genericTimer::Timer {
 public:
   void pulse() {
     target::PORT.OUTSET.setOUTSET(1 << LED_PIN);
-    start(100);
+    start(1);
   }
 };
+
+class I2CEndpoint;
+
+class I2CMaster : public atsamd::i2c::Master {
+public:
+  I2CEndpoint *endpoint;
+  void rxComplete(int length);
+};
+
+class I2CEndpoint : public usbd::UsbEndpoint {
+public:
+  unsigned char rxBuffer[256];
+  unsigned char txBuffer[256];
+
+  LedPulseTimer ledPulseTimer;
+  I2CMaster i2cMaster;
+
+  void init() {
+    rxBufferPtr = rxBuffer;
+    rxBufferSize = sizeof(rxBuffer);
+    txBufferPtr = txBuffer;
+    txBufferSize = sizeof(txBuffer);
+    transferType = BULK;
+    usbd::UsbEndpoint::init();
+
+    i2cMaster.endpoint = this;
+    i2cMaster.init(&target::SERCOM0, 8000000, 100000, txBuffer, sizeof(txBuffer), rxBuffer + 1,
+                   sizeof(rxBuffer) - 1);
+  }
+
+  void rxComplete(int length) {
+    ledPulseTimer.pulse();
+    if (length > 0) {
+      int address = rxBuffer[0] >> 1;
+      if (rxBuffer[0] & 1) {        
+        if (length > 1) {
+          i2cMaster.startRx(address, rxBuffer[1]);
+        }
+      } else {
+        i2cMaster.startTx(address, length - 1);
+      }
+    }
+  }
+};
+
+void I2CMaster::rxComplete(int length) { endpoint->startTx(length); }
 
 class IrqEndpoint : public usbd::UsbEndpoint {
 public:
@@ -82,32 +76,28 @@ public:
 class BridgeInterface : public usbd::UsbInterface {
 public:
   IrqEndpoint irqEndpoint;
-  LedPulseTimer ledPulseTimer;
-  atsamd::i2c::Master i2cMaster;
+  I2CEndpoint i2cEndpoint;
 
-  virtual UsbEndpoint *getEndpoint(int index) { return index == 0 ? &irqEndpoint : NULL; }
+  virtual UsbEndpoint *getEndpoint(int index) {
+    return index == 0 ? (UsbEndpoint *)&i2cEndpoint : index == 1 ? (UsbEndpoint *)&irqEndpoint : NULL;
+  }
 
   const char *getLabel() { return "USB-I2C bridge interface"; }
 
-  void init() {
-    UsbInterface::init();
-    i2cMaster.init(&target::SERCOM0, 8000000, 100000);
-  }
-
   void setup(SetupData *setup) {
     if (setup->bmRequestType.type == VENDOR) {
-      switch (setup->bRequest) {
-      case REQUEST_I2C_READ:
-        ledPulseTimer.pulse();
-        device->getControlEndpoint()->startTx(setup->wLength);
-        // device->getControlEndpoint()->stall();
-        break;
-      case REQUEST_I2C_WRITE:
-        ledPulseTimer.pulse();
-        device->getControlEndpoint()->startTx(0);
-        // device->getControlEndpoint()->stall();
-        break;
-      }
+      // switch (setup->bRequest) {
+      // case REQUEST_I2C_READ:
+      //   ledPulseTimer.pulse();
+      //   device->getControlEndpoint()->startTx(setup->wLength);
+      //   // device->getControlEndpoint()->stall();
+      //   break;
+      // case REQUEST_I2C_WRITE:
+      //   ledPulseTimer.pulse();
+      //   device->getControlEndpoint()->startTx(0);
+      //   // device->getControlEndpoint()->stall();
+      //   break;
+      // }
     }
   }
 };
@@ -133,11 +123,9 @@ public:
 
 BridgeDevice bridgeDevice;
 
-TestTimer testTimer;
-
 void interruptHandlerUSB() { bridgeDevice.interruptHandlerUSB(); }
 
-void interruptHandlerSERCOM0() { testTimer.interruptHandlerSERCOM(); }
+void interruptHandlerSERCOM0() { bridgeDevice.bridgeInterface.i2cEndpoint.i2cMaster.interruptHandlerSERCOM(); }
 
 void initApplication() {
 
@@ -161,7 +149,5 @@ void initApplication() {
   target::NVIC.ISER.setSETENA(1 << target::interrupts::External::SERCOM0);
 
   bridgeDevice.init();
-
-
-  testTimer.start(100);
+  
 }
