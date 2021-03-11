@@ -64,6 +64,7 @@ public:
           txComplete(txLength);
           sercom->I2CM.CTRLB.setCMD(3);
         }
+        
       }
     }
 

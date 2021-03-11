@@ -22,6 +22,7 @@ class I2CMaster : public atsamd::i2c::Master {
 public:
   I2CEndpoint *endpoint;
   void rxComplete(int length);
+  void txComplete(int length);
 };
 
 class I2CEndpoint : public usbd::UsbEndpoint {
@@ -61,6 +62,10 @@ public:
 };
 
 void I2CMaster::rxComplete(int length) { endpoint->startTx(length); }
+void I2CMaster::txComplete(int length) { 
+  endpoint->txBuffer[0] = length;
+  endpoint->startTx(1); 
+}
 
 class IrqEndpoint : public usbd::UsbEndpoint {
 public:
