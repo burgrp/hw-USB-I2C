@@ -1,9 +1,8 @@
 int LED_PIN = 23;
 
-const int REQUEST_GPIO_CONFIGURE_INPUT = 2;
-const int REQUEST_GPIO_READ_INPUT = 3;
-const int REQUEST_GPIO_CONFIGURE_OUTPUT = 4;
-const int REQUEST_GPIO_WRITE_OUTPUT = 5;
+const int REQUEST_GPIO_CONFIGURE = 1;
+const int REQUEST_GPIO_READ = 2;
+const int REQUEST_GPIO_WRITE = 3;
 
 class LedPulseTimer : public genericTimer::Timer {
 
@@ -42,15 +41,14 @@ public:
     usbd::UsbEndpoint::init();
 
     i2cMaster.endpoint = this;
-    i2cMaster.init(&target::SERCOM0, 8000000, 100000, txBuffer, sizeof(txBuffer), rxBuffer + 1,
-                   sizeof(rxBuffer) - 1);
+    i2cMaster.init(&target::SERCOM0, 8000000, 100000, txBuffer, sizeof(txBuffer), rxBuffer + 1, sizeof(rxBuffer) - 1);
   }
 
   void rxComplete(int length) {
     ledPulseTimer.pulse();
     if (length > 0) {
       int address = rxBuffer[0] >> 1;
-      if (rxBuffer[0] & 1) {        
+      if (rxBuffer[0] & 1) {
         if (length > 1) {
           i2cMaster.startRx(address, rxBuffer[1]);
         }
@@ -62,9 +60,9 @@ public:
 };
 
 void I2CMaster::rxComplete(int length) { endpoint->startTx(length); }
-void I2CMaster::txComplete(int length) { 
+void I2CMaster::txComplete(int length) {
   endpoint->txBuffer[0] = length;
-  endpoint->startTx(1); 
+  endpoint->startTx(1);
 }
 
 class IrqEndpoint : public usbd::UsbEndpoint {
@@ -89,20 +87,68 @@ public:
 
   const char *getLabel() { return "USB-I2C bridge interface"; }
 
+  bool openDrain[32];
+
   void setup(SetupData *setup) {
     if (setup->bmRequestType.type == VENDOR) {
-      // switch (setup->bRequest) {
-      // case REQUEST_I2C_READ:
-      //   ledPulseTimer.pulse();
-      //   device->getControlEndpoint()->startTx(setup->wLength);
-      //   // device->getControlEndpoint()->stall();
-      //   break;
-      // case REQUEST_I2C_WRITE:
-      //   ledPulseTimer.pulse();
-      //   device->getControlEndpoint()->startTx(0);
-      //   // device->getControlEndpoint()->stall();
-      //   break;
-      // }
+      switch (setup->bRequest) {
+      case REQUEST_GPIO_CONFIGURE: {
+        int wValue = setup->wValue;
+        int pin = wValue & 0xFF;
+
+        target::PORT.PINCFG[pin].setINEN(true);
+
+        if ((wValue >> 8) & 1) {
+          // output
+          bool openDrain = (wValue >> 9) & 1;
+          bool pullUp = (wValue >> 10) & 1;
+
+          this->openDrain[pin] = openDrain;
+
+          if (openDrain) {
+            target::PORT.DIRCLR = 1 << pin;
+            target::PORT.PINCFG[pin].setPULLEN(pullUp);
+            if (pullUp) {
+              target::PORT.OUTSET = 1 << pin;
+            } else {
+              target::PORT.OUTCLR = 1 << pin;
+            }
+
+          } else {
+            target::PORT.OUTCLR = 1 << pin;
+            target::PORT.DIRSET = 1 << pin;
+          }
+
+        } else {
+          // input
+          target::PORT.DIRCLR = 1 << pin;
+          bool pullDown = (wValue >> 9) & 1;
+          bool pullUp = (wValue >> 10) & 1;
+          target::PORT.PINCFG[pin].setPULLEN(pullDown || pullUp);
+          if (pullDown) {
+            target::PORT.OUTCLR = 1 << pin;
+          }
+          if (pullUp) {
+            target::PORT.OUTSET = 1 << pin;
+          }
+        }
+
+        device->getControlEndpoint()->startTx(0);
+        break;
+      }
+      case REQUEST_GPIO_WRITE: {
+        int wValue = setup->wValue;
+        int pin = wValue & 0xFF;
+        int state = (wValue >> 8) & 1;
+        if (state) {
+          target::PORT.OUTSET = 1 << pin;
+        } else {
+          target::PORT.OUTCLR = 1 << pin;
+        }
+        device->getControlEndpoint()->startTx(0);
+        break;
+      }
+      }
     }
   }
 };
@@ -154,5 +200,4 @@ void initApplication() {
   target::NVIC.ISER.setSETENA(1 << target::interrupts::External::SERCOM0);
 
   bridgeDevice.init();
-  
 }
