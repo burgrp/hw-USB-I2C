@@ -106,16 +106,12 @@ public:
           this->openDrain[pin] = openDrain;
 
           if (openDrain) {
-            target::PORT.DIRCLR = 1 << pin;
             target::PORT.PINCFG[pin].setPULLEN(pullUp);
-            if (pullUp) {
-              target::PORT.OUTSET = 1 << pin;
-            } else {
-              target::PORT.OUTCLR = 1 << pin;
-            }
-
+            target::PORT.DIRCLR = 1 << pin;
+            target::PORT.OUTSET = 1 << pin;
           } else {
             target::PORT.OUTCLR = 1 << pin;
+            target::PORT.PINCFG[pin].setPULLEN(false);
             target::PORT.DIRSET = 1 << pin;
           }
 
@@ -140,10 +136,20 @@ public:
         int wValue = setup->wValue;
         int pin = wValue & 0xFF;
         int state = (wValue >> 8) & 1;
-        if (state) {
-          target::PORT.OUTSET = 1 << pin;
+        if (openDrain[pin]) {
+          if (state) {
+            target::PORT.OUTSET = 1 << pin;
+            target::PORT.DIRCLR = 1 << pin;
+          } else {
+            target::PORT.OUTCLR = 1 << pin;
+            target::PORT.DIRSET = 1 << pin;
+          }
         } else {
-          target::PORT.OUTCLR = 1 << pin;
+          if (state) {
+            target::PORT.OUTSET = 1 << pin;
+          } else {
+            target::PORT.OUTCLR = 1 << pin;
+          }
         }
         device->getControlEndpoint()->startTx(0);
         break;
