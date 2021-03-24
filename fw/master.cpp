@@ -86,10 +86,6 @@ public:
       }
     }
 
-    // if (sercom->I2CM.INTFLAG.getERROR()) {
-    //   sercom->I2CM.INTFLAG.setERROR(true);
-
-    // }
   }
 
   virtual void rxComplete(int length){};

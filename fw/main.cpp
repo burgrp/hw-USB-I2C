@@ -1,8 +1,44 @@
 int LED_PIN = 23;
+int SAFEBOOT_PIN = 9;
 
 const int REQUEST_GPIO_CONFIGURE = 1;
 const int REQUEST_GPIO_READ = 2;
 const int REQUEST_GPIO_WRITE = 3;
+
+const int PIN_TO_EXTINT[32] = {
+    -1, // PA00
+    -1, // PA01
+    2,  // PA02
+    3,  // PA03
+    4,  // PA04
+    5,  // PA05
+    6,  // PA06
+    7,  // PA07
+    6,  // PA08
+    7,  // PA09
+    2,  // PA10
+    3,  // PA11
+    -1, // PA12
+    -1, // PA13
+    -1, // PA14
+    1,  // PA15
+    0,  // PA16
+    1,  // PA17
+    -1, // PA18
+    -1, // PA19
+    -1, // PA20
+    -1, // PA21
+    6,  // PA22
+    7,  // PA23
+    4,  // PA24
+    5,  // PA25
+    -1, // PA26
+    7,  // PA27
+    -1, // PA28
+    -1, // PA29
+    2,  // PA30
+    3,  // PA31
+};
 
 class LedPulseTimer : public genericTimer::Timer {
 
@@ -67,12 +103,17 @@ void I2CMaster::txComplete(int length) {
 
 class IrqEndpoint : public usbd::UsbEndpoint {
 public:
-  unsigned char txBuffer[8];
+  unsigned int txBuffer;
 
   void init() {
-    txBufferPtr = txBuffer;
+    txBufferPtr = (unsigned char*)&txBuffer;
     txBufferSize = sizeof(txBuffer);
     usbd::UsbEndpoint::init();
+  }
+
+  void signal(int pinFlags) {
+    txBuffer = pinFlags;
+    startTx(sizeof(txBuffer));
   }
 };
 
@@ -120,6 +161,9 @@ public:
           target::PORT.DIRCLR = 1 << pin;
           bool pullDown = (wValue >> 9) & 1;
           bool pullUp = (wValue >> 10) & 1;
+          bool irqRisingEdge = (wValue >> 11) & 1;
+          bool irqFallingEdge = (wValue >> 12) & 1;
+
           target::PORT.PINCFG[pin].setPULLEN(pullDown || pullUp);
           if (pullDown) {
             target::PORT.OUTCLR = 1 << pin;
@@ -127,6 +171,25 @@ public:
           if (pullUp) {
             target::PORT.OUTSET = 1 << pin;
           }
+
+          int extInt = PIN_TO_EXTINT[pin];
+          if (irqRisingEdge || irqFallingEdge) {
+            target::EIC.CONFIG.setFILTEN(extInt, true);
+            if (pin & 1) {
+              target::PORT.PMUX[pin >> 1].setPMUXO(target::port::PMUX::PMUXO::A);
+            } else {
+              target::PORT.PMUX[pin >> 1].setPMUXE(target::port::PMUX::PMUXE::A);
+            }
+            target::PORT.PINCFG[pin].setPMUXEN(true);
+            target::EIC.INTENSET.setEXTINT(extInt, true);
+          } else {
+            target::EIC.INTENCLR.setEXTINT(extInt, false);
+            target::PORT.PINCFG[pin].setPMUXEN(false);
+          }
+          target::EIC.CONFIG.setSENSE(extInt, irqRisingEdge ? irqFallingEdge ? target::eic::CONFIG::SENSE::BOTH
+                                                                             : target::eic::CONFIG::SENSE::RISE
+                                                            : irqFallingEdge ? target::eic::CONFIG::SENSE::FALL
+                                                                             : target::eic::CONFIG::SENSE::NONE);
         }
 
         device->getControlEndpoint()->startTx(0);
@@ -190,11 +253,33 @@ void interruptHandlerUSB() { bridgeDevice.interruptHandlerUSB(); }
 
 void interruptHandlerSERCOM0() { bridgeDevice.bridgeInterface.i2cEndpoint.i2cMaster.interruptHandlerSERCOM(); }
 
+void interruptHandlerEIC() {
+  int intFlags = target::EIC.INTFLAG;
+  
+  int pinFlags = 0;
+  for (int i = 0; i < 8; i++) {
+    if ((intFlags >> i) & 1) {
+      for (int p = 0; p < 32; p++) {
+        if (PIN_TO_EXTINT[p] == i) {
+          pinFlags |= 1 << p;
+        }
+      }
+    }
+  }
+
+  bridgeDevice.bridgeInterface.irqEndpoint.signal(pinFlags);
+  target::EIC.INTFLAG = 0xFF;
+}
+
 void initApplication() {
 
-  atsamd::safeboot::init(9, false, LED_PIN);
+  // enable safeboot
+  atsamd::safeboot::init(SAFEBOOT_PIN, false, LED_PIN);
 
-  bridgeDevice.useInternalOscilators();
+  // 48MHz by internal RC oscillator
+  bridgeDevice.useInternalOscillators();
+
+  // clock to SERCOM0
 
   target::PM.APBCMASK.setSERCOM(0, true);
 
@@ -203,18 +288,33 @@ void initApplication() {
                              .setGEN(target::gclk::CLKCTRL::GEN::GCLK0)
                              .setCLKEN(true);
 
+  // I2C pins
+
   target::PORT.PMUX[7].setPMUXE(target::port::PMUX::PMUXE::C);
   target::PORT.PMUX[7].setPMUXO(target::port::PMUX::PMUXO::C);
 
   target::PORT.PINCFG[14].setPMUXEN(true);
   target::PORT.PINCFG[15].setPMUXEN(true);
 
-  target::NVIC.IPR[target::interrupts::External::SERCOM0 >> 2].setPRI(target::interrupts::External::SERCOM0 & 0x3, 0);
-  target::NVIC.IPR[target::interrupts::External::USB >> 2].setPRI(target::interrupts::External::USB & 0x3, 1);
-  
+  // enable EIC
+
+  target::PM.APBAMASK.setEIC(true);
+
+  target::GCLK.CLKCTRL = target::GCLK.CLKCTRL.bare()
+                             .setID(target::gclk::CLKCTRL::ID::EIC)
+                             .setGEN(target::gclk::CLKCTRL::GEN::GCLK0)
+                             .setCLKEN(true);
+
+  target::EIC.CTRL.setENABLE(true);
+
+  // set interrupt priorities and endable
+
+  target::NVIC.IPR[target::interrupts::External::EVSYS >> 2].setPRI(target::interrupts::External::SERCOM0 & 0x3, 0);
+  target::NVIC.IPR[target::interrupts::External::USB >> 2].setPRI(target::interrupts::External::USB & 0x3, 2);
+  target::NVIC.IPR[target::interrupts::External::EIC >> 2].setPRI(target::interrupts::External::EIC & 0x3, 3);
+
   target::NVIC.ISER.setSETENA(1 << target::interrupts::External::SERCOM0);
-
-
+  target::NVIC.ISER.setSETENA(1 << target::interrupts::External::EIC);
 
   bridgeDevice.init();
 }
