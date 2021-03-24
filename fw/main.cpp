@@ -132,6 +132,12 @@ public:
         device->getControlEndpoint()->startTx(0);
         break;
       }
+      case REQUEST_GPIO_READ: {
+        int pin = setup->wValue & 0xFF;
+        device->getControlEndpoint()->txBufferPtr[0] = target::PORT.IN.getIN() >> pin & 1;
+        device->getControlEndpoint()->startTx(8);
+        break;
+      }
       case REQUEST_GPIO_WRITE: {
         int wValue = setup->wValue;
         int pin = wValue & 0xFF;
@@ -203,6 +209,7 @@ void initApplication() {
   target::PORT.PINCFG[14].setPMUXEN(true);
   target::PORT.PINCFG[15].setPMUXEN(true);
 
+  target::NVIC.IPR[target::interrupts::External::USB >> 2].setPRI(target::interrupts::External::USB & 0x3, 3);
   target::NVIC.ISER.setSETENA(1 << target::interrupts::External::SERCOM0);
 
   bridgeDevice.init();
