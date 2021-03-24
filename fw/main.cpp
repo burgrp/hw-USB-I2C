@@ -209,8 +209,12 @@ void initApplication() {
   target::PORT.PINCFG[14].setPMUXEN(true);
   target::PORT.PINCFG[15].setPMUXEN(true);
 
-  target::NVIC.IPR[target::interrupts::External::USB >> 2].setPRI(target::interrupts::External::USB & 0x3, 3);
+  target::NVIC.IPR[target::interrupts::External::SERCOM0 >> 2].setPRI(target::interrupts::External::SERCOM0 & 0x3, 0);
+  target::NVIC.IPR[target::interrupts::External::USB >> 2].setPRI(target::interrupts::External::USB & 0x3, 1);
+  
   target::NVIC.ISER.setSETENA(1 << target::interrupts::External::SERCOM0);
+
+
 
   bridgeDevice.init();
 }
