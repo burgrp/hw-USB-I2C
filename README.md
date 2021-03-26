@@ -217,5 +217,14 @@ Build and flash from [fw](fw) directory:
 silicon build -df
 ```
 
+## Linux permissions
+
+You can make the USB device available for all non-root users by copying [50-usb-i2c.rules](50-usb-i2c.rules) file to udev rules directory:
+```sh
+sudo cp 50-usb-i2c.rules /etc/udev/rules.d
+sudo udevadm control --reload-rules
+sudo udevadm trigger
+```
+
 ## License
 This work is licensed under a Creative Commons Attribution-ShareAlike 4.0 International License.
