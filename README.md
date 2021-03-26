@@ -6,7 +6,7 @@ Another USB to I2C bridge implemented on ATSAMD11C14A MCU.
 
 ## I2C bus
 
-There is one I2C supported. I2C operations are controlled by USB bulk endpoint 1 on interface 0.
+There is one I2C bus supported. I2C operations are controlled by USB bulk endpoint 1 on interface 0.
 
 ## GPIO
 Although the board has only one GPIO connected to ports (it is pin 5 for Alert/IRQ signal),
