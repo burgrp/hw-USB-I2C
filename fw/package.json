@@ -1,9 +1,9 @@
 {
-  "name": "atsamd11c14a-usbd-test",
+  "name": "@burgrp/usb-i2c-fw",
   "version": "1.0.0",
-  "description": "",
+  "description": "USB to I2C bridge on ATSAMD11C14A",
   "author": "Pavel Burgr",
-  "license": "ISC",
+  "license": "CC BY-SA",
   "dependencies": {
     "@si14/si-application-events": "^1.0.2",
     "@si14/si-atsamd-safeboot": "^1.0.2",
