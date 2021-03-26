@@ -1,5 +1,5 @@
-int LED_PIN = 23;
-int SAFEBOOT_PIN = 9;
+int LED_PIN = 2;
+int SAFEBOOT_PIN = 8;
 
 const int REQUEST_GPIO_CONFIGURE = 1;
 const int REQUEST_GPIO_READ = 2;
