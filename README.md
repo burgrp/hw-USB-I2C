@@ -26,7 +26,7 @@ Interrupts are read by interrupt endpoint 2 on interface 0.
 5. +5V
 6. ALERT (IRQ)
 
-Alert/IRQ pin is GPIO 5 and needs to be configured by software, see [USB protocol](#usbprotocol).
+Alert/IRQ pin is GPIO 5 and needs to be configured by software, see [USB protocol](#usb-protocol).
 
 ## Binding
 
