@@ -49,7 +49,7 @@ public:
       if (sercom->I2CM.STATUS.getBUSERR() || sercom->I2CM.STATUS.getRXNACK()) {
 
         if (sercom->I2CM.ADDR & 1) {
-          rxComplete(txLength);
+          rxComplete(rxLength);
         } else {
           txComplete(txLength);
         }
