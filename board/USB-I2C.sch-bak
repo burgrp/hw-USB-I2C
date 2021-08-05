@@ -513,9 +513,9 @@ F 3 "http://ww1.microchip.com/downloads/en/DeviceDoc/Atmel-42363-SAM-D11_Datashe
 	1    6100 4350
 	1    0    0    -1  
 $EndComp
-Text Label 6600 4350 0    60   ~ 0
-SCL
 Text Label 6600 4450 0    60   ~ 0
+SCL
+Text Label 6600 4350 0    60   ~ 0
 SDA
 Wire Wire Line
 	7500 4700 7350 4700
@@ -593,5 +593,55 @@ F 2 "" H 6900 2300 50  0001 C CNN
 F 3 "" H 6900 2300 50  0001 C CNN
 	1    6900 2300
 	0    1    1    0   
+$EndComp
+$Comp
+L Connector_Generic:Conn_01x06 J3
+U 1 1 605F4A2B
+P 4400 6650
+F 0 "J3" H 4400 6950 50  0000 C CNN
+F 1 "Conn_01x06" H 4400 6250 50  0000 C CNN
+F 2 "Connector_IDC:IDC-Header_2x03_P2.54mm_Vertical" H 4400 6650 50  0001 C CNN
+F 3 "" H 4400 6650 50  0001 C CNN
+	1    4400 6650
+	-1   0    0    1   
+$EndComp
+$Comp
+L power:+3.3V #PWR011
+U 1 1 605F4A35
+P 4600 6550
+F 0 "#PWR011" H 4600 6400 50  0001 C CNN
+F 1 "+3V3" V 4600 6750 50  0000 C CNN
+F 2 "" H 4600 6550 50  0001 C CNN
+F 3 "" H 4600 6550 50  0001 C CNN
+	1    4600 6550
+	0    1    1    0   
+$EndComp
+$Comp
+L power:+5V #PWR010
+U 1 1 605F4A3F
+P 4600 6450
+F 0 "#PWR010" H 4600 6300 50  0001 C CNN
+F 1 "+5V" V 4600 6650 50  0000 C CNN
+F 2 "" H 4600 6450 50  0001 C CNN
+F 3 "" H 4600 6450 50  0001 C CNN
+	1    4600 6450
+	0    1    1    0   
+$EndComp
+Text Label 4600 6350 0    60   ~ 0
+ALERT
+Text Label 4600 6650 0    60   ~ 0
+SDA
+Text Label 4600 6750 0    60   ~ 0
+SCL
+$Comp
+L power:GND #PWR012
+U 1 1 605F4A4C
+P 4600 6850
+F 0 "#PWR012" H 4600 6600 50  0001 C CNN
+F 1 "GND" V 4600 6650 50  0000 C CNN
+F 2 "" H 4600 6850 50  0001 C CNN
+F 3 "" H 4600 6850 50  0001 C CNN
+	1    4600 6850
+	0    -1   -1   0   
 $EndComp
 $EndSCHEMATC
