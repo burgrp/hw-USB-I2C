@@ -96,6 +96,7 @@ public:
 };
 
 void I2CMaster::rxComplete(int length) { endpoint->startTx(length); }
+
 void I2CMaster::txComplete(int length) {
   endpoint->txBuffer[0] = length;
   endpoint->startTx(1);
@@ -106,7 +107,7 @@ public:
   unsigned int txBuffer;
 
   void init() {
-    txBufferPtr = (unsigned char*)&txBuffer;
+    txBufferPtr = (unsigned char *)&txBuffer;
     txBufferSize = sizeof(txBuffer);
     usbd::UsbEndpoint::init();
   }
@@ -255,7 +256,7 @@ void interruptHandlerSERCOM0() { bridgeDevice.bridgeInterface.i2cEndpoint.i2cMas
 
 void interruptHandlerEIC() {
   int intFlags = target::EIC.INTFLAG;
-  
+
   int pinFlags = 0;
   for (int i = 0; i < 8; i++) {
     if ((intFlags >> i) & 1) {

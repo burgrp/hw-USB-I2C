@@ -6,7 +6,7 @@
   "license": "CC BY-SA",
   "dependencies": {
     "@si14/si-application-events": "^1.0.2",
-    "@si14/si-atsamd-i2c": "^1.0.3",
+    "@si14/si-atsamd-i2c": "^1.0.4",
     "@si14/si-atsamd-safeboot": "^1.0.2",
     "@si14/si-atsamd-usbd": "^1.0.1",
     "@si14/si-atsamd11c14a": "^2.0.4",
