@@ -1192,7 +1192,6 @@
     )
   )
 
-
   (junction (at 119.38 55.88) (diameter 0) (color 0 0 0 0)
     (uuid 09585b87-385d-436a-a102-d729f05cfd84)
   )
@@ -2774,7 +2773,7 @@
     (property "Reference" "U2" (at 182.88 83.4771 0)
       (effects (font (size 1.27 1.27)))
     )
-    (property "Value" "ESP32-C3" (at 182.88 85.3981 0)
+    (property "Value" "ESP32-C3FN4" (at 182.88 85.3981 0)
       (effects (font (size 1.27 1.27)))
     )
     (property "Footprint" "Package_DFN_QFN:QFN-32-1EP_5x5mm_P0.5mm_EP3.45x3.45mm" (at 182.88 147.32 0)
