@@ -6,6 +6,13 @@ USB to I2C bridge implemented on ESP32-C3FN4 MCU.
 
 ## Features
 
+- Serial to I2C interface
+- Alert line
+- 3.3V, 5V power supply
+- Simple serial protocol
+- Implemented in MicroPython
+- Designed in KiCAD
+
 ## Connectors
 
 All connectors have the same pin-out as follows.
