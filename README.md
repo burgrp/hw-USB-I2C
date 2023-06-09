@@ -40,6 +40,8 @@ The bridge is controlled through serial port by simple text protocol:
 - `W,addr,hex_data` writes data to device, replies `W,acked_count`
 - `A` gets alert line status, replies `AT` (true) or `AF` (false).
 
+Addresses are always expressed in 7bit format, therefore without R/W bit.
+
 ### Example
 
 By commands `S`, `R,79,2`, `A` we can scan the bus, read temperature from LM75A sensor found on address 79 and check the alert line:
