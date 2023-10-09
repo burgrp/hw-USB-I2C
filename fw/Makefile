@@ -1,11 +1,11 @@
-.DEFAULT_GOAL := help
-.PHONY: requirements deploy
-
 PROJECT_NAME=usb-i2c
+
+.DEFAULT_GOAL := help
+.PHONY: help submodule start port vanilla freeze flash dev
+
 IDF_VERSION=v4.4.4
 MPY_VERSIOON=v1.20.0
 BUILDER_IMAGE=ghcr.io/burgrp/mpy-builder-esp32c3:${IDF_VERSION}-${MPY_VERSIOON}
-PORT=/dev/ttyACM0
 
 CONTAINER_NAME=${PROJECT_NAME}-builder
 
@@ -17,16 +17,19 @@ submodule: ## Initializes and updates git submodules
 	git submodule update
 
 start:	## Starts build container
-	podman run -it --rm --name ${CONTAINER_NAME} --privileged -v ${PWD}:/project -v /dev:/dev -w /opt/mpy/ports/esp32 -e BOARD=GENERIC_C3_USB -e PORT=${PORT} ${BUILDER_IMAGE}
+	podman run -it --rm --name ${CONTAINER_NAME} --privileged -v ${PWD}:/project -v /dev:/dev -w /opt/mpy/ports/esp32 -e BOARD=GENERIC_C3_USB ${BUILDER_IMAGE}
 
-vanilla: ## Builds and flashes vanilla MicroPython
-	podman exec -it ${CONTAINER_NAME} make FROZEN_MANIFEST=/project/manifest-dev.py clean deploy
+port: ## Checks if PORT is set
+	@[ "${PORT}" ] || ( echo ">> PORT is not set"; exit 1 )
 
-dev: ## Mount application directory, run main and repl
-	podman exec -it -w /project ${CONTAINER_NAME} mpremote mount -l app exec "import main" repl
+vanilla: port ## Builds and flashes vanilla MicroPython
+	podman exec -it ${CONTAINER_NAME} make PORT=${PORT} FROZEN_MANIFEST=/project/manifest-dev.py clean deploy
 
-freeze: ## Builds and flashes frozen application
-	podman exec -it ${CONTAINER_NAME} make FROZEN_MANIFEST=/project/manifest.py clean deploy
+freeze: port ## Builds and flashes frozen application
+	podman exec -it ${CONTAINER_NAME} make PORT=${PORT} FROZEN_MANIFEST=/project/manifest.py clean deploy
 
-flash: ## Flashes last build (vanilla or freeze)
-	podman exec -it ${CONTAINER_NAME} make FROZEN_MANIFEST=/project/manifest.py deploy
+flash: port ## Flashes last build (vanilla or freeze)
+	podman exec -it ${CONTAINER_NAME} make PORT=${PORT} FROZEN_MANIFEST=/project/manifest.py deploy
+
+dev: port ## Mount application directory, run main and repl
+	podman exec -it -w /project ${CONTAINER_NAME} mpremote connect ${PORT} mount -l app exec "import main" repl
