@@ -3,9 +3,9 @@ PROJECT_NAME=usb-i2c
 .DEFAULT_GOAL := help
 .PHONY: help submodule start port vanilla freeze flash dev
 
-IDF_VERSION=v4.4.4
+IDF_VERSION=v4.4.6
 MPY_VERSIOON=v1.20.0
-BUILDER_IMAGE=ghcr.io/burgrp/mpy-builder-esp32c3:${IDF_VERSION}-${MPY_VERSIOON}
+BUILDER_IMAGE=ghcr.io/burgrp/mpy-builder-esp32c3:${MPY_VERSIOON}-${IDF_VERSION}
 
 CONTAINER_NAME=${PROJECT_NAME}-builder
 
