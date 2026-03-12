@@ -4,13 +4,14 @@ import binascii
 led = Pin(7, Pin.OUT)
 alert = Pin(6, Pin.IN, Pin.PULL_UP)
 
-i2c = I2C(0, scl = Pin(5), sda = Pin(4), freq = 400000)
+i2c = I2C(0, scl = Pin(5), sda = Pin(4), freq = 100000)
 
 commands = {
     "S": lambda: ",".join(str(addr) for addr in i2c.scan()),
     "R": lambda addr, len: binascii.hexlify(i2c.readfrom(int(addr), int(len))).decode("ascii"),
     "W": lambda addr, data: i2c.writeto(int(addr), binascii.unhexlify(data)),
-    "A": lambda: str("F" if alert.value() == 1 else "T")
+    "A": lambda: str("F" if alert.value() == 1 else "T"),
+    "F": lambda freqKHz: i2c.init(freq=int(freqKHz) * 1000)
 }
 
 def do(cmd):
